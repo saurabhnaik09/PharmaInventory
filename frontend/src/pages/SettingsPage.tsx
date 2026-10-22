@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 type Tab = 'general' | 'pharmacy' | 'notifications' | 'security' | 'appearance' | 'preferences' | 'danger';
 
 export default function SettingsPage() {
-  const { success, error } = useToast();
+  const { success } = useToast();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   
