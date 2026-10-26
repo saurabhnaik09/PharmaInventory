@@ -2,7 +2,24 @@ import type { Order } from '../../types';
 
 export const mockOrders: Order[] = [
   {
+    id: 'ORD-2026-00943',
+    medicine: 'Azithromycin 500mg',
+    genericName: 'Azithromycin',
+    strength: '500mg',
+    source: 'MedSupply Distributors',
+    sourceType: 'supplier',
+    quantity: 40,
+    date: new Date().toISOString(),
+    status: 'pending',
+    note: 'Urgent refill for respiratory care unit',
+    totalAmount: 1680,
+    pharmacyName: 'ABC Pharmacy',
+    pharmacyAddress: 'Plot 42, Health City, Andheri East, Mumbai',
+    contactPhone: '+91 98200 12345',
+  },
+  {
     id: 'REQ-2026-00121',
+
     medicine: 'Amoxicillin 500mg',
     genericName: 'Amoxicillin',
     strength: '500mg',

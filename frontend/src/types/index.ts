@@ -134,7 +134,18 @@ export interface Order {
   status: OrderStatus;
   note?: string;
   totalAmount?: number;
+  pharmacyName?: string;
+  pharmacyAddress?: string;
+  contactPhone?: string;
+  trackingNumber?: string;
+  courierName?: string;
+  estimatedDeliveryDate?: string;
+  rejectionReason?: string;
+  acceptedAt?: string;
+  dispatchedAt?: string;
+  completedAt?: string;
 }
+
 
 // ─── Alert ───────────────────────────────────────────────────────────────────
 

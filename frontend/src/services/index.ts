@@ -8,7 +8,9 @@ import type {
   Medicine,
   Pharmacy,
   Supplier,
+  SupplierMedicineAvailability,
   Order,
+  OrderStatus,
   Alert,
   ProcurementResult,
   AddMedicineForm,
@@ -20,6 +22,7 @@ import { computeStockStatus, generateOrderId, stockStatusToAlertType } from '../
 
 let _medicines: Medicine[] = [...mockMedicines];
 let _orders: Order[] = [...mockOrders];
+let _suppliers: Supplier[] = JSON.parse(JSON.stringify(mockSuppliers));
 
 // ─── Medicine Service ─────────────────────────────────────────────────────────
 
@@ -107,7 +110,7 @@ export const ProcurementService = {
   },
 
   getSuppliers(): Supplier[] {
-    return mockSuppliers;
+    return _suppliers;
   },
 
   search(query: string): ProcurementResult[] {
@@ -139,7 +142,7 @@ export const ProcurementService = {
       }
     }
 
-    for (const supplier of mockSuppliers) {
+    for (const supplier of _suppliers) {
       for (const med of supplier.availableMedicines) {
         if (
           med.medicineName.toLowerCase().includes(q) ||
@@ -169,6 +172,43 @@ export const ProcurementService = {
       if (a.sourceType === 'supplier' && b.sourceType === 'pharmacy') return 1;
       return (a.distance ?? 999) - (b.distance ?? 999);
     });
+  },
+};
+
+// ─── Supplier Catalog Service ────────────────────────────────────────────────
+
+export const SupplierCatalogService = {
+  getSupplier(supplierId = 's1'): Supplier | undefined {
+    return _suppliers.find(s => s.id === supplierId);
+  },
+
+  getMedicines(supplierId = 's1'): SupplierMedicineAvailability[] {
+    const s = _suppliers.find(s => s.id === supplierId);
+    return s ? [...s.availableMedicines] : [];
+  },
+
+  updateStock(supplierId: string, medicineId: string, availableQty: number, unitPrice?: number): boolean {
+    const s = _suppliers.find(s => s.id === supplierId);
+    if (!s) return false;
+    const med = s.availableMedicines.find(m => m.medicineId === medicineId);
+    if (!med) return false;
+    med.availableQty = Math.max(0, availableQty);
+    if (unitPrice !== undefined && unitPrice > 0) med.unitPrice = unitPrice;
+    return true;
+  },
+
+  addProduct(supplierId: string, product: SupplierMedicineAvailability): void {
+    const s = _suppliers.find(s => s.id === supplierId);
+    if (!s) return;
+    s.availableMedicines = [product, ...s.availableMedicines];
+  },
+
+  deleteProduct(supplierId: string, medicineId: string): boolean {
+    const s = _suppliers.find(s => s.id === supplierId);
+    if (!s) return false;
+    const lenBefore = s.availableMedicines.length;
+    s.availableMedicines = s.availableMedicines.filter(m => m.medicineId !== medicineId);
+    return s.availableMedicines.length < lenBefore;
   },
 };
 
@@ -206,9 +246,57 @@ export const OrderService = {
       status: 'pending',
       note: params.note,
       totalAmount: params.unitPrice * params.quantity,
+      pharmacyName: 'ABC Pharmacy',
+      pharmacyAddress: 'Plot 42, Health City, Andheri East, Mumbai',
+      contactPhone: '+91 98200 12345',
     };
     _orders = [order, ..._orders];
     return order;
+  },
+
+  updateStatus(
+    id: string,
+    status: OrderStatus,
+    details?: {
+      trackingNumber?: string;
+      courierName?: string;
+      note?: string;
+      rejectionReason?: string;
+      estimatedDeliveryDate?: string;
+    }
+  ): Order | null {
+    const idx = _orders.findIndex(o => o.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    const existing = _orders[idx];
+    const updated: Order = {
+      ...existing,
+      status,
+      ...(details?.trackingNumber ? { trackingNumber: details.trackingNumber } : {}),
+      ...(details?.courierName ? { courierName: details.courierName } : {}),
+      ...(details?.note ? { note: details.note } : {}),
+      ...(details?.rejectionReason ? { rejectionReason: details.rejectionReason } : {}),
+      ...(details?.estimatedDeliveryDate ? { estimatedDeliveryDate: details.estimatedDeliveryDate } : {}),
+      ...(status === 'accepted' ? { acceptedAt: now } : {}),
+      ...(status === 'dispatched' ? { dispatchedAt: now } : {}),
+      ...(status === 'completed' ? { completedAt: now } : {}),
+    };
+    _orders = _orders.map(o => (o.id === id ? updated : o));
+
+    // When order is completed, automatically replenish matching medicine in pharmacy stock if exists
+    if (status === 'completed') {
+      const matchMed = _medicines.find(
+        m => m.name.toLowerCase() === existing.medicine.toLowerCase() ||
+             m.genericName.toLowerCase() === existing.genericName.toLowerCase()
+      );
+      if (matchMed) {
+        MedicineService.update(matchMed.id, {
+          currentStock: matchMed.currentStock + existing.quantity,
+        });
+      }
+    }
+
+    return updated;
   },
 
   getStats() {
@@ -217,3 +305,4 @@ export const OrderService = {
     return { pending, processing, total: _orders.length };
   },
 };
+
